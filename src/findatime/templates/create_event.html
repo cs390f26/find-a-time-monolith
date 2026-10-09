@@ -320,7 +320,13 @@ document.getElementById("event-form").addEventListener("submit", async (e) => {
     }
 
     seen.add(key);
-    timeSlots.push({ startTime, endTime });
+    
+timeSlots.push({
+  startTime,
+  endTime,
+  label: `${date} ${start} - ${end}`
+});
+
   }
 
   const payload = {

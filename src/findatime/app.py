@@ -29,14 +29,24 @@ def create_app():
     def home():
         return render_template("events.html", events=sample_events)
 
+    @app.get("/events")
+    def list_events():
+        return {
+            "events": [
+                {
+                    "id": event["id"],
+                    "title": event["title"],
+                    "notes": event.get("notes", ""),
+                    "attendeeCount": event.get("attendeeCount", 0)
+                }
+                for event in sample_events
+            ]
+        }, 200
 
-
-    
     @app.get("/events/new")
     def new_event():
         return render_template("create_event.html")
 
-    
     @app.post("/events")
     def create_event():
         from flask import request, jsonify
@@ -124,9 +134,6 @@ def create_app():
 
         return jsonify({"id": event_id}), 201
 
-
-
-    
     @app.get("/events/<event_id>")
     def view_event(event_id):
         event = next(
@@ -139,9 +146,6 @@ def create_app():
 
         return render_template("respond.html", event=event)
 
-
-
-    
     @app.post("/events/<event_id>/responses")
     def submit_response(event_id):
         from flask import request, jsonify
@@ -156,6 +160,14 @@ def create_app():
                 "code": "EVENT_NOT_FOUND",
                 "message": "Event not found"
             }}), 404
+
+        
+        if not event.get("timeSlots"):
+            return jsonify({"error": {
+                "code": "BAD_REQUEST",
+                "message": "This event has no available time slots."
+            }}), 400
+
 
         data = request.get_json(silent=True)
 
@@ -224,10 +236,6 @@ def create_app():
             "winningSlotIds": winning_ids,
             "timeSlots": event["timeSlots"]
         }), 200
-    
-
-
-
 
     @app.get("/events/<event_id>/results")
     def event_results(event_id):
@@ -279,12 +287,7 @@ def create_app():
             "winningSlotIds": winning_ids,
             "timeSlots": result_slots
         }), 200
-    
-    
 
-
-
-    
     @app.get("/events/<event_id>/results/view")
     def results_page(event_id):
         from flask import abort
@@ -328,9 +331,9 @@ def create_app():
             winning_ids=winning_ids
         )
 
-
-
-
+    @app.get("/health")
+    def health():
+        return {"status": "ok"}, 200
 
     return app
 

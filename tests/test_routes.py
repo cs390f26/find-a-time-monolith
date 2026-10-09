@@ -219,3 +219,30 @@ def test_unknown_event():
         }
     )
     assert vote_response.status_code == 404
+
+
+def test_health_endpoint():
+    app = create_app()
+    app.config["TESTING"] = True
+    client = app.test_client()
+
+    response = client.get("/health")
+
+    assert response.status_code == 200
+    assert response.get_json() == {"status": "ok"}
+
+
+def test_list_events_endpoint():
+    app = create_app()
+    app.config["TESTING"] = True
+    client = app.test_client()
+
+    response = client.get("/events")
+
+    assert response.status_code == 200
+
+    data = response.get_json()
+
+    assert "events" in data
+    assert isinstance(data["events"], list)
+    assert len(data["events"]) == 3
