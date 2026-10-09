@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Find a Time — Create Event</title>
+<style>
+  :root {
+    --primary: #7a2048;
+    --primary-dark: #5c1836;
+    --bg: #faf6f2;
+    --card-bg: #ffffff;
+    --border: #e8ddd6;
+    --field-bg: #fbf8f5;
+    --text-main: #2b2320;
+    --text-muted: #8a7a72;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: linear-gradient(180deg, #faf6f2 0%, #f2e9e2 100%);
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    color: var(--text-main);
+    padding: 48px 64px;
+  }
+
+  header { margin-bottom: 32px; }
+
+  h1 {
+    font-family: Georgia, "Times New Roman", serif;
+    color: var(--primary);
+    font-size: 40px;
+    margin: 0 0 4px 0;
+  }
+
+  .subtitle {
+    color: var(--text-muted);
+    font-size: 15px;
+    margin: 0;
+  }
+
+  .card {
+    background: var(--card-bg);
+    border-radius: 16px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.05);
+    padding: 40px;
+    max-width: 680px;
+  }
+
+  .card h2 {
+    font-family: Georgia, serif;
+    font-size: 26px;
+    margin: 0 0 28px 0;
+  }
+
+  label {
+    display: block;
+    font-weight: 600;
+    font-size: 14px;
+    margin-bottom: 8px;
+  }
+
+  .field {
+    margin-bottom: 24px;
+  }
+
+  input[type="text"], input[type="date"], input[type="time"] {
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--field-bg);
+    font-size: 14px;
+    color: var(--text-main);
+    font-family: inherit;
+  }
+
+  input[type="text"] {
+    width: 100%;
+  }
+
+  .section-label {
+    font-weight: 700;
+    font-size: 15px;
+    margin: 0 0 4px 0;
+  }
+
+  .section-hint {
+    color: var(--text-muted);
+    font-size: 13px;
+    margin: 0 0 16px 0;
+  }
+
+  .slot-field {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+
+  .slot-number {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .separator {
+    color: var(--text-muted);
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  
+.add-slot {
+  display: inline-block;
+  color: var(--primary);
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  margin-top: 4px;
+  margin-bottom: 8px;
+}
+
+.add-slot:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.remove-slot {
+  background: transparent;
+  color: #a4433a;
+  border: 1px solid #a4433a;
+  border-radius: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.remove-slot:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+
+  .fallback-note {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--field-bg);
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-top: 18px;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+
+  .actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 28px;
+  }
+
+  .btn {
+    display: inline-block;
+    background: var(--primary);
+    color: #fff;
+    text-decoration: none;
+    padding: 12px 26px;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: 14px;
+    border: none;
+    cursor: pointer;
+  }
+
+  .btn-secondary {
+    background: transparent;
+    color: var(--primary);
+    border: 1px solid var(--primary);
+  }
+</style>
+</head>
+<body>
+
+  <header>
+    <h1>Find a Time</h1>
+    <p class="subtitle">Propose a plan. Cast your availability. See the results.</p>
+  </header>
+
+  
+<div class="card">
+  <h2>Create an event</h2>
+
+  <form id="event-form">
+    <div class="field">
+      <label for="title">Event name</label>
+      <input type="text" id="title" name="title"
+             placeholder="Enter event name"
+             maxlength="140" required>
+    </div>
+
+    <div class="field">
+      <label for="notes">Notes / location</label>
+      <input type="text" id="notes" name="notes"
+             placeholder="Optional details"
+             maxlength="500">
+    </div>
+
+    <div class="field">
+      <p class="section-label">Time slot options</p>
+      <p class="section-hint">
+        Add between 2 and 6 possible meeting times.
+      </p>
+
+      <div id="time-slots"></div>
+
+      <button type="button" class="add-slot"
+              id="add-slot">
+        + Add another time slot
+      </button>
+
+      <div class="fallback-note">
+        "None of these work for me" will be added
+        automatically.
+      </div>
+    </div>
+
+    <p id="form-error" role="alert" style="color:#a4433a;"></p>
+
+    <div class="actions">
+      <a href="/" class="btn btn-secondary">Cancel</a>
+      <button type="submit" class="btn">Create</button>
+    </div>
+  </form>
+</div>
+
+
+<script>
+const slotsContainer = document.getElementById("time-slots");
+const addButton = document.getElementById("add-slot");
+const errorBox = document.getElementById("form-error");
+
+function addSlot() {
+  if (slotsContainer.children.length >= 6) return;
+
+  const row = document.createElement("div");
+  row.className = "slot-field";
+  row.innerHTML = `
+    <span class="slot-number"></span>
+    <input type="date" class="slot-date" required>
+    <input type="time" class="slot-start" required>
+    <span class="separator">to</span>
+    <input type="time" class="slot-end" required>
+    <button type="button" class="remove-slot">Remove</button>
+  `;
+
+  row.querySelector(".remove-slot").addEventListener("click", () => {
+    if (slotsContainer.children.length <= 2) return;
+    row.remove();
+    updateSlots();
+  });
+
+  slotsContainer.appendChild(row);
+  updateSlots();
+}
+
+function updateSlots() {
+  [...slotsContainer.children].forEach((row, index) => {
+    row.querySelector(".slot-number").textContent = index + 1;
+    row.querySelector(".remove-slot").disabled =
+      slotsContainer.children.length <= 2;
+  });
+
+  addButton.disabled = slotsContainer.children.length >= 6;
+}
+
+addButton.addEventListener("click", addSlot);
+
+addSlot();
+addSlot();
+
+document.getElementById("event-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  errorBox.textContent = "";
+
+  const timeSlots = [];
+  const seen = new Set();
+
+  for (const row of slotsContainer.children) {
+    const date = row.querySelector(".slot-date").value;
+    const start = row.querySelector(".slot-start").value;
+    const end = row.querySelector(".slot-end").value;
+
+    if (!date || !start || !end || end <= start) {
+      errorBox.textContent = "Please enter valid start and end times.";
+      return;
+    }
+
+    const startTime = new Date(`${date}T${start}`).toISOString();
+    const endTime = new Date(`${date}T${end}`).toISOString();
+    const key = `${startTime}|${endTime}`;
+
+    if (seen.has(key)) {
+      errorBox.textContent = "Duplicate time slots are not allowed.";
+      return;
+    }
+
+    seen.add(key);
+    timeSlots.push({ startTime, endTime });
+  }
+
+  const payload = {
+    title: document.getElementById("title").value.trim(),
+    notes: document.getElementById("notes").value.trim(),
+    timeSlots
+  };
+
+  if (!payload.title || timeSlots.length < 2 || timeSlots.length > 6) {
+    errorBox.textContent = "Enter a title and between 2 and 6 time slots.";
+    return;
+  }
+
+  try {
+    const response = await fetch("/events", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      errorBox.textContent = result.error?.message || "Could not create event.";
+      return;
+    }
+
+    window.location.href = `/events/${encodeURIComponent(result.id)}`;
+  } catch (error) {
+    errorBox.textContent = "Unable to connect to the server.";
+  }
+});
+</script>
+
+</body>
+</html>

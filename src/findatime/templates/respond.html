@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Find a Time — Respond</title>
+<style>
+  :root {
+    --primary: #7a2048;
+    --primary-dark: #5c1836;
+    --na: #a4433a;
+    --bg: #faf6f2;
+    --card-bg: #ffffff;
+    --border: #e8ddd6;
+    --field-bg: #fbf8f5;
+    --text-main: #2b2320;
+    --text-muted: #8a7a72;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: linear-gradient(180deg, #faf6f2 0%, #f2e9e2 100%);
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    color: var(--text-main);
+    padding: 48px 64px;
+  }
+
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 32px;
+  }
+
+  h1 {
+    font-family: Georgia, "Times New Roman", serif;
+    color: var(--primary);
+    font-size: 40px;
+    margin: 0 0 4px 0;
+  }
+
+  .subtitle {
+    color: var(--text-muted);
+    font-size: 15px;
+    margin: 0;
+  }
+
+  .nav {
+    display: flex;
+    gap: 12px;
+  }
+
+  .btn {
+    display: inline-block;
+    background: var(--primary);
+    color: #fff;
+    text-decoration: none;
+    padding: 12px 22px;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: 14px;
+    border: none;
+    cursor: pointer;
+  }
+
+  .btn-secondary {
+    background: transparent;
+    color: var(--primary);
+    border: 1px solid var(--primary);
+  }
+
+  .card {
+    background: var(--card-bg);
+    border-radius: 16px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.05);
+    padding: 40px;
+    max-width: 640px;
+  }
+
+  .card h2 {
+    font-family: Georgia, serif;
+    font-size: 26px;
+    margin: 0 0 8px 0;
+  }
+
+  .event-meta {
+    color: var(--text-muted);
+    font-size: 15px;
+    margin: 0 0 8px 0;
+  }
+
+  .hint {
+    color: var(--text-muted);
+    font-size: 13px;
+    margin: 0 0 24px 0;
+  }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 0 0 24px 0;
+  }
+
+  .field {
+    margin-bottom: 24px;
+  }
+
+  label {
+    display: block;
+    font-weight: 600;
+    font-size: 14px;
+    margin-bottom: 8px;
+  }
+
+  input[type="text"] {
+    width: 100%;
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--field-bg);
+    font-size: 15px;
+    color: var(--text-main);
+  }
+
+  .option {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 18px 20px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--field-bg);
+    text-decoration: none;
+    margin-bottom: 14px;
+  }
+
+  .checkbox {
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    border: 2px solid var(--primary);
+    flex-shrink: 0;
+  }
+
+  .option.selected .checkbox {
+    background: var(--primary);
+  }
+
+  .option-label {
+    font-weight: 600;
+    font-size: 16px;
+    color: var(--text-main);
+  }
+
+  .option.not-available {
+    border-color: var(--na);
+    background: #fdf3f2;
+  }
+
+  .option.not-available .checkbox {
+    border-color: var(--na);
+  }
+
+  .option.not-available.selected .checkbox {
+    background: var(--na);
+  }
+
+  .submit-row {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 12px;
+  }
+
+  
+.slot-checkbox {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+.option.not-available .slot-checkbox {
+  accent-color: var(--na);
+}
+
+.option:has(.slot-checkbox:checked) {
+  border-color: var(--primary);
+}
+
+.option.not-available:has(.slot-checkbox:checked) {
+  border-color: var(--na);
+}
+
+</style>
+</head>
+<body>
+
+  <header>
+    <div>
+      <h1>Find a Time</h1>
+      <p class="subtitle">Propose a plan. Cast your availability. See the results.</p>
+    </div>
+    <div class="nav">
+     <a href="/" class="btn btn-secondary">All events</a>
+     <a href="/events/new" class="btn">Create event</a>
+    </div>
+  </header>
+
+  <div class="card">
+    <h2>{{ event.title }}</h2>
+    <p class="event-meta">{{ event.notes or '' }}</p>
+    <p class="hint">Enter your name and check every time that works for you.</p>
+
+    <div class="field">
+      <label for="name">Your name</label>
+      <input type="text" id="name" name="responderName"
+       placeholder="Enter your full name"
+       maxlength="50" required>    
+      </div>
+
+    <hr class="divider">
+
+    
+{% for slot in event.timeSlots %}
+<label class="option {% if slot.slotId == 'slot_fallback' %}not-available{% endif %}">
+  <input type="checkbox"
+         name="selectedSlotIds"
+         value="{{ slot.slotId }}"
+         class="slot-checkbox">
+
+  <span class="option-label">
+    {{ slot.label }}
+  </span>
+</label>
+{% endfor %}
+
+
+    
+<div class="submit-row">
+  <button type="button" id="submit-response" class="btn">
+    Submit response
+  </button>
+</div>
+
+<p id="response-error" role="alert" style="color:#a4433a;"></p>
+
+  </div>
+
+<script>
+const checkboxes = document.querySelectorAll(".slot-checkbox");
+
+checkboxes.forEach((checkbox) => {
+  checkbox.addEventListener("change", () => {
+    if (!checkbox.checked) return;
+
+    if (checkbox.value === "slot_fallback") {
+      checkboxes.forEach((other) => {
+        if (other.value !== "slot_fallback") {
+          other.checked = false;
+        }
+      });
+    } else {
+      const fallback = document.querySelector(
+        'input[value="slot_fallback"]'
+      );
+
+      if (fallback) {
+        fallback.checked = false;
+      }
+    }
+  });
+});
+
+
+const submitButton = document.getElementById("submit-response");
+const responseError = document.getElementById("response-error");
+
+submitButton.addEventListener("click", async () => {
+  responseError.textContent = "";
+
+  const responderName = document.getElementById("name").value.trim();
+
+  const selectedSlotIds = [...checkboxes]
+    .filter((checkbox) => checkbox.checked)
+    .map((checkbox) => checkbox.value);
+
+  if (!responderName) {
+    responseError.textContent = "Please enter your name.";
+    return;
+  }
+
+  if (selectedSlotIds.length === 0) {
+    responseError.textContent = "Please select at least one time slot.";
+    return;
+  }
+
+  if (
+    selectedSlotIds.includes("slot_fallback") &&
+    selectedSlotIds.length > 1
+  ) {
+    responseError.textContent =
+      "None of these work for me cannot be combined with other options.";
+    return;
+  }
+
+  
+  // Send the response to our Flask API.
+  submitButton.disabled = true;
+
+  try {
+    const response = await fetch(
+      `/events/{{ event.id }}/responses`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          responderName,
+          selectedSlotIds
+        })
+      }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      responseError.textContent =
+        result.error?.message || "Could not submit response.";
+      return;
+    }
+
+   window.location.href =
+  `/events/{{ event.id }}/results/view`;
+
+  } catch (error) {
+    responseError.textContent =
+      "Unable to submit your response.";
+  } finally {
+    submitButton.disabled = false;
+  }
+
+});
+
+</script>
+
+
+</body>
+</html>
