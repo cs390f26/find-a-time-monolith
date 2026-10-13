@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Find a Time — Events</title>
+<style>
+  :root {
+    --primary: #7a2048;
+    --primary-dark: #5c1836;
+    --bg: #faf6f2;
+    --card-bg: #ffffff;
+    --border: #e8ddd6;
+    --text-main: #2b2320;
+    --text-muted: #8a7a72;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: linear-gradient(180deg, #faf6f2 0%, #f2e9e2 100%);
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    color: var(--text-main);
+    padding: 48px 64px;
+  }
+
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 32px;
+  }
+
+  h1 {
+    font-family: Georgia, "Times New Roman", serif;
+    color: var(--primary);
+    font-size: 40px;
+    margin: 0 0 4px 0;
+  }
+
+  .subtitle {
+    color: var(--text-muted);
+    font-size: 15px;
+    margin: 0;
+  }
+
+  .btn {
+    display: inline-block;
+    background: var(--primary);
+    color: #fff;
+    text-decoration: none;
+    padding: 12px 22px;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: 14px;
+    border: none;
+    cursor: pointer;
+  }
+
+  .btn:hover { background: var(--primary-dark); }
+
+  .btn-secondary {
+    background: transparent;
+    color: var(--primary);
+    border: 1px solid var(--primary);
+  }
+
+  .card {
+    background: var(--card-bg);
+    border-radius: 16px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.05);
+    overflow: hidden;
+  }
+
+  .event-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 28px 32px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .event-row:last-child { border-bottom: none; }
+
+  .event-info h2 {
+    font-size: 20px;
+    margin: 0 0 6px 0;
+  }
+
+  .event-meta {
+    color: var(--text-muted);
+    font-size: 14px;
+    margin: 0;
+  }
+
+  .event-actions {
+    display: flex;
+    gap: 12px;
+  }
+</style>
+</head>
+<body>
+
+  <header>
+    <div>
+      <h1>Find a Time</h1>
+      <p class="subtitle">Propose a plan. Cast your availability. See the results.</p>
+    </div>
+<a href="/events/new" class="btn">Create event</a>
+</header>
+
+  
+<div class="card">
+  {% if events %}
+    {% for event in events %}
+    <div class="event-row">
+      <div class="event-info">
+        <h2>{{ event.title }}</h2>
+        <p class="event-meta">
+          {{ event.attendeeCount }} responses
+        </p>
+      </div>
+
+      <div class="event-actions">
+        <a href="/events/{{ event.id }}" class="btn">
+          Respond
+        </a>
+        <a href="/events/{{ event.id }}/results"
+           class="btn btn-secondary">
+          Results
+        </a>
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="event-row">
+      <p>No events yet. Create the first event!</p>
+    </div>
+  {% endif %}
+</div>
+
+
+</body>
+</html>

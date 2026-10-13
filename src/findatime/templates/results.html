@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Find a Time — Results</title>
+<style>
+  :root {
+    --primary: #7a2048;
+    --primary-dark: #5c1836;
+    --na: #a4433a;
+    --bg: #faf6f2;
+    --card-bg: #ffffff;
+    --border: #e8ddd6;
+    --track: #efe6e0;
+    --text-main: #2b2320;
+    --text-muted: #8a7a72;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: linear-gradient(180deg, #faf6f2 0%, #f2e9e2 100%);
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    color: var(--text-main);
+    padding: 48px 64px;
+  }
+
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 32px;
+  }
+
+  h1 {
+    font-family: Georgia, "Times New Roman", serif;
+    color: var(--primary);
+    font-size: 40px;
+    margin: 0 0 4px 0;
+  }
+
+  .subtitle {
+    color: var(--text-muted);
+    font-size: 15px;
+    margin: 0;
+  }
+
+  .nav {
+    display: flex;
+    gap: 12px;
+  }
+
+  .btn {
+    display: inline-block;
+    background: var(--primary);
+    color: #fff;
+    text-decoration: none;
+    padding: 12px 22px;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: 14px;
+    border: none;
+    cursor: pointer;
+  }
+
+  .btn-secondary {
+    background: transparent;
+    color: var(--primary);
+    border: 1px solid var(--primary);
+  }
+
+  .card {
+    background: var(--card-bg);
+    border-radius: 16px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.05);
+    padding: 40px;
+    max-width: 640px;
+  }
+
+  .card h2 {
+    font-family: Georgia, serif;
+    font-size: 26px;
+    margin: 0 0 8px 0;
+  }
+
+  .total {
+    color: var(--text-muted);
+    font-size: 15px;
+    margin: 0 0 28px 0;
+  }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 0 0 28px 0;
+  }
+
+  .result-row { margin-bottom: 24px; }
+
+  .result-label {
+    display: flex;
+    justify-content: space-between;
+    font-weight: 700;
+    font-size: 16px;
+    margin-bottom: 8px;
+  }
+
+  .bar-track {
+    background: var(--track);
+    border-radius: 999px;
+    height: 14px;
+    overflow: hidden;
+  }
+
+  .bar-fill {
+    background: var(--primary);
+    height: 100%;
+    border-radius: 999px 0 0 999px;
+  }
+
+  .bar-fill.not-available {
+    background: var(--na);
+  }
+
+  .attendees-list {
+    margin-top: 6px;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  .footer-link {
+    display: inline-block;
+    margin-top: 12px;
+    color: var(--primary);
+    font-weight: 600;
+    text-decoration: underline;
+  }
+</style>
+</head>
+<body>
+
+  <header>
+    <div>
+      <h1>Find a Time</h1>
+      <p class="subtitle">Propose a plan. Cast your availability. See the results.</p>
+    </div>
+    <div class="nav">
+      <a href="/" class="btn btn-secondary">All events</a>
+      <a href="/events/new" class="btn">Create event</a>
+    </div>
+  </header>
+
+  
+<div class="card">
+  <h2>{{ event.title }}</h2>
+
+  <p class="event-meta">{{ event.notes or '' }}</p>
+  <p class="total">{{ event.attendeeCount }} responses</p>
+
+  <hr class="divider">
+
+  {% for slot in slots %}
+  <div class="result-row">
+    <div class="result-label">
+      <span>
+        {{ slot.label }}
+        {% if slot.slotId in winning_ids %}
+          <strong>(Best time)</strong>
+        {% endif %}
+      </span>
+      <span>{{ slot.tally }}</span>
+    </div>
+
+    
+<div class="bar-track">
+  <div
+    class="bar-fill {% if slot.slotId == 'slot_fallback' %}not-available{% endif %}"
+    data-tally="{{ slot.tally }}"
+    data-total="{{ event.attendeeCount }}">
+  </div>
+</div>
+
+
+    <div class="attendees-list">
+      {% if slot.attendees %}
+        {{ slot.attendees | join(', ') }}
+      {% else %}
+        No responses yet
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+
+  <hr class="divider">
+
+  <a href="/events/{{ event.id }}" class="footer-link">
+  Submit another response
+  </a>
+</div>    
+
+
+<script>
+document.querySelectorAll(".bar-fill").forEach((bar) => {
+  const tally = Number(bar.dataset.tally);
+  const total = Number(bar.dataset.total);
+
+  const percentage = total > 0
+    ? (tally / total) * 100
+    : 0;
+
+  bar.style.width = `${percentage}%`;
+});
+</script>
+
+
+</body>
+</html>
