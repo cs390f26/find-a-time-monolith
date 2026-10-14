@@ -216,3 +216,15 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# DynamoDB Local (downloaded separately, see docs/development.md) and its data
+DynamoDBLocal.jar
+DynamoDBLocal_lib/
+LICENSE.txt
+THIRD-PARTY-LICENSES.txt
+README.txt
+*.db
+dynamodb-local-metadata.json
+
+# macOS
+.DS_Store

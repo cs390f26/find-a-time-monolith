@@ -1,12 +1,26 @@
+# systemd unit for the web server: gunicorn running the Flask app on port 80.
 [Unit]
-Description=Find-a-Time Monolith Web Service
-After=network.target
+Description=Find-a-Time Monolith Web Service (gunicorn)
+# Start after the database, and stop if the database service is stopped.
+After=network.target dynamodb-local.service
+Requires=dynamodb-local.service
 
 [Service]
 User=ec2-user
 WorkingDirectory=/home/ec2-user/find-a-time-monolith
-Environment="PATH=/home/ec2-user/find-a-time-monolith/.venv/bin"
-ExecStart=/home/ec2-user/find-a-time-monolith/.venv/bin/gunicorn -w 2 -b 0.0.0.0:8000 "findatime:create_app()"
+Environment="PATH=/home/ec2-user/find-a-time-monolith/.venv/bin:/usr/bin"
+# Where the app finds its database (DynamoDB Local on this machine).
+Environment="DYNAMODB_ENDPOINT_URL=http://localhost:8000"
+Environment="AWS_DEFAULT_REGION=us-east-1"
+Environment="EVENTS_TABLE_NAME=Events"
+# DynamoDB Local accepts any credentials, but boto3 refuses to run without some.
+# These are placeholders, not real AWS keys.
+Environment="AWS_ACCESS_KEY_ID=local"
+Environment="AWS_SECRET_ACCESS_KEY=local"
+# Port 80 is a privileged port; this lets ec2-user bind to it without running as root.
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+# 2 worker processes; "findatime.app:create_app()" = call create_app() in src/findatime/app.py
+ExecStart=/home/ec2-user/find-a-time-monolith/.venv/bin/gunicorn -w 2 -b 0.0.0.0:80 "findatime.app:create_app()"
 Restart=always
 
 [Install]

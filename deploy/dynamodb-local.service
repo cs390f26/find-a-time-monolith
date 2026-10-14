@@ -1,0 +1,16 @@
+# systemd unit for the database: DynamoDB Local, running on this same EC2 instance.
+# Data is saved to /var/lib/dynamodb-local, so events survive restarts and reboots.
+[Unit]
+Description=DynamoDB Local (database for Find-a-Time)
+After=network.target
+
+[Service]
+User=ec2-user
+WorkingDirectory=/opt/dynamodb-local
+# -sharedDb: one database file shared by every client/region
+# -dbPath:   where that file lives (instead of the working directory)
+ExecStart=/usr/bin/java -Djava.library.path=/opt/dynamodb-local/DynamoDBLocal_lib -jar /opt/dynamodb-local/DynamoDBLocal.jar -sharedDb -dbPath /var/lib/dynamodb-local -port 8000
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

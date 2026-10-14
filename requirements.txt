@@ -1,2 +1,5 @@
 flask
 pytest
+moto[dynamodb]
+boto3
+gunicorn

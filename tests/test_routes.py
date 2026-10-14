@@ -1,5 +1,5 @@
 
-from src.findatime.app import create_app
+from findatime.app import create_app
 
 
 def test_homepage():
@@ -237,12 +237,97 @@ def test_list_events_endpoint():
     app.config["TESTING"] = True
     client = app.test_client()
 
-    response = client.get("/events")
+    slots = [
+        {"startTime": "2026-10-15T14:00:00Z", "endTime": "2026-10-15T15:00:00Z"},
+        {"startTime": "2026-10-16T16:00:00Z", "endTime": "2026-10-16T17:00:00Z"},
+    ]
+    created_ids = set()
+    for i in range(3):
+        r = client.post("/events", json={"title": f"List Test {i}", "timeSlots": slots})
+        assert r.status_code == 201
+        created_ids.add(r.get_json()["id"])
 
+    response = client.get("/events")
     assert response.status_code == 200
 
     data = response.get_json()
-
-    assert "events" in data
     assert isinstance(data["events"], list)
-    assert len(data["events"]) == 3
+    assert created_ids.issubset({e["id"] for e in data["events"]})
+
+
+
+def test_attendee_count_counts_each_person_once():
+    """Alice picks two slots and Bob picks one: that is 2 people, not 3 votes."""
+    app = create_app()
+    app.config["TESTING"] = True
+    client = app.test_client()
+
+    slots = [
+        {"startTime": "2026-10-15T14:00:00Z", "endTime": "2026-10-15T15:00:00Z"},
+        {"startTime": "2026-10-16T16:00:00Z", "endTime": "2026-10-16T17:00:00Z"},
+    ]
+    event_id = client.post("/events", json={"title": "Count Test", "timeSlots": slots}).get_json()["id"]
+
+    client.post(f"/events/{event_id}/responses",
+                json={"responderName": "Alice", "selectedSlotIds": ["slot_1", "slot_2"]})
+    client.post(f"/events/{event_id}/responses",
+                json={"responderName": "Bob", "selectedSlotIds": ["slot_1"]})
+
+    # JSON list of events
+    listed = {e["id"]: e for e in client.get("/events").get_json()["events"]}
+    assert listed[event_id]["attendeeCount"] == 2
+
+    # Home page (HTML)
+    assert b"2 responses" in client.get("/").data
+
+    # Results page (HTML)
+    assert b"2 responses" in client.get(f"/events/{event_id}/results/view").data
+
+
+def test_home_page_results_button_opens_results_page():
+    """The Results button must open the HTML results page, not the raw JSON API."""
+    app = create_app()
+    app.config["TESTING"] = True
+    client = app.test_client()
+
+    slots = [
+        {"startTime": "2026-10-15T14:00:00Z", "endTime": "2026-10-15T15:00:00Z"},
+        {"startTime": "2026-10-16T16:00:00Z", "endTime": "2026-10-16T17:00:00Z"},
+    ]
+    event_id = client.post("/events", json={"title": "Link Test", "timeSlots": slots}).get_json()["id"]
+
+    home = client.get("/").data.decode()
+    assert f'href="/events/{event_id}/results/view"' in home
+
+
+
+def test_list_events_newest_first_with_created_at():
+    """Use case 'Newest first': the most recently created event is at the top."""
+    import time
+
+    app = create_app()
+    app.config["TESTING"] = True
+    client = app.test_client()
+
+    slots = [
+        {"startTime": "2026-10-15T14:00:00Z", "endTime": "2026-10-15T15:00:00Z"},
+        {"startTime": "2026-10-16T16:00:00Z", "endTime": "2026-10-16T17:00:00Z"},
+    ]
+    created_in_order = []
+    for title in ["First", "Second", "Third"]:
+        r = client.post("/events", json={"title": title, "timeSlots": slots})
+        created_in_order.append(r.get_json()["id"])
+        time.sleep(0.01)  # createdAt has millisecond precision; keep timestamps distinct
+
+    events = client.get("/events").get_json()["events"]
+
+    # Every event summary includes createdAt (required by the API spec)
+    assert all("createdAt" in e for e in events)
+
+    # Newest first
+    listed_ids = [e["id"] for e in events]
+    assert listed_ids == list(reversed(created_in_order))
+
+    # The home page shows them in the same order
+    home = client.get("/").data.decode()
+    assert home.index("Third") < home.index("Second") < home.index("First")

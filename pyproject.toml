@@ -9,6 +9,8 @@ description = "A scheduling poll app for finding a meeting time"
 requires-python = ">=3.10"
 dependencies = [
     "flask",
+    "boto3",
+    "gunicorn",
 ]
 
 [tool.setuptools.packages.find]

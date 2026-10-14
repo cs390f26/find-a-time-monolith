@@ -1,45 +1,72 @@
+import sys
+from typing import Optional
+from flask import Flask, jsonify, render_template, request, abort
 
-from flask import Flask, render_template
+from findatime.db import DatabaseUnavailableError, EventStorage
+from findatime.app_logic import (
+    FindATimeApp,
+    NotFoundError,
+    ServiceUnavailableError,
+    ValidationError,
+)
+from findatime.settings import ensure_settings
 
 
-def create_app():
+def _error(code: str, message: str, status: int):
+    return jsonify({"error": {"code": code, "message": message}}), status
+
+def _unique_attendee_count(slots) -> int:
+    return len({name for s in slots for name in s.get("attendees", [])})
+
+def create_app(app_logic: Optional[FindATimeApp] = None) -> Flask:
+    """Build the Flask app and bind routes to the FindATimeApp logic layer."""
+    if app_logic is None:
+        settings = ensure_settings()
+        storage = EventStorage(
+            table_name=settings.get("EVENTS_TABLE_NAME", "Events"),
+            region_name=settings["AWS_DEFAULT_REGION"],
+            endpoint_url=settings["DYNAMODB_ENDPOINT_URL"],
+        )
+        app_logic = FindATimeApp(storage)
+
     app = Flask(__name__)
-
-    # Temporary data for frontend development.
-    # We will replace this with database calls later.
-    sample_events = [
-        {
-            "id": "ev_101a9b2c",
-            "title": "CS 320 Group Project Kickoff",
-            "attendeeCount": 0,
-        },
-        {
-            "id": "ev_202c4d5e",
-            "title": "Weekend Midterm Study Group",
-            "attendeeCount": 6,
-        },
-        {
-            "id": "ev_303e6f7a",
-            "title": "End of Semester Dinner",
-            "attendeeCount": 8,
-        },
-    ]
 
     @app.get("/")
     def home():
-        return render_template("events.html", events=sample_events)
+        try:
+            events = app_logic.list_events()
+        except ServiceUnavailableError:
+            return jsonify({"status": "unavailable"}), 503
+        
+        # Map event dataclasses back to dict format for the template
+        event_list = [
+            {
+                "id": ev.event_id,
+                "title": ev.title,
+                "notes": ev.notes,
+                "attendeeCount": _unique_attendee_count(ev.slots)
+            }
+            for ev in events
+        ]
+        return render_template("events.html", events=event_list)
 
     @app.get("/events")
     def list_events():
+        try:
+            events = app_logic.list_events()
+        except ServiceUnavailableError:
+            return jsonify({"status": "unavailable"}), 503
+        
         return {
             "events": [
                 {
-                    "id": event["id"],
-                    "title": event["title"],
-                    "notes": event.get("notes", ""),
-                    "attendeeCount": event.get("attendeeCount", 0)
+                    "id": ev.event_id,
+                    "title": ev.title,
+                    "notes": ev.notes,
+                    "createdAt": ev.created_at,
+                    "attendeeCount": _unique_attendee_count(ev.slots)
                 }
-                for event in sample_events
+                for ev in events
             ]
         }, 200
 
@@ -49,294 +76,158 @@ def create_app():
 
     @app.post("/events")
     def create_event():
-        from flask import request, jsonify
-        from datetime import datetime
-        from uuid import uuid4
-
         data = request.get_json(silent=True)
-
         if not isinstance(data, dict):
-            return jsonify({
-                "error": {
-                    "code": "BAD_REQUEST",
-                    "message": "Please provide valid event data."
-                }
-            }), 400
+            return _error("BAD_REQUEST", "Please provide valid event data.", 400)
 
         title = data.get("title")
         notes = data.get("notes", "")
-        slots = data.get("timeSlots")
+        time_slots = data.get("timeSlots")
 
-        if (not isinstance(title, str)
-                or not title.strip()
-                or len(title) > 140
-                or not isinstance(notes, str)
-                or len(notes) > 500
-                or not isinstance(slots, list)
-                or not 2 <= len(slots) <= 6):
-            return jsonify({
-                "error": {
-                    "code": "BAD_REQUEST",
-                    "message": "Enter a title and 2 to 6 valid time slots."
-                }
-            }), 400
-
-        validated_slots = []
-        seen = set()
-
-        for slot in slots:
-            if not isinstance(slot, dict):
-                return jsonify({"error": {
-                    "code": "BAD_REQUEST",
-                    "message": "Invalid time slot."
-                }}), 400
-
-            try:
-                start = datetime.fromisoformat(slot["startTime"].replace("Z", "+00:00"))
-                end = datetime.fromisoformat(slot["endTime"].replace("Z", "+00:00"))
-            except (KeyError, AttributeError, TypeError, ValueError):
-                return jsonify({"error": {
-                    "code": "BAD_REQUEST",
-                    "message": "Invalid date or time."
-                }}), 400
-
-            if (start.tzinfo is None or end.tzinfo is None
-                    or end <= start or (start, end) in seen):
-                return jsonify({"error": {
-                    "code": "BAD_REQUEST",
-                    "message": "Time slots must be unique and end after they start."
-                }}), 400
-
-            seen.add((start, end))
-            validated_slots.append({
-                "slotId": f"slot_{len(validated_slots) + 1}",
-                "startTime": slot["startTime"],
-                "endTime": slot["endTime"],
-                "label": slot.get("label") or start.strftime("%b %d, %I:%M %p")
-            })
-
-        event_id = "ev_" + uuid4().hex[:8]
-
-        validated_slots.append({
-            "slotId": "slot_fallback",
-            "startTime": None,
-            "endTime": None,
-            "label": "None of these work for me"
-        })
-
-        sample_events.insert(0, {
-            "id": event_id,
-            "title": title.strip(),
-            "notes": notes,
-            "attendeeCount": 0,
-            "timeSlots": validated_slots
-        })
+        try:
+            event_id = app_logic.create_event(title, notes, time_slots)
+        except ValidationError as exc:
+            return _error("BAD_REQUEST", str(exc), 400)
+        except ServiceUnavailableError:
+            return jsonify({"status": "unavailable"}), 503
 
         return jsonify({"id": event_id}), 201
 
     @app.get("/events/<event_id>")
     def view_event(event_id):
-        event = next(
-            (item for item in sample_events if item["id"] == event_id),
-            None
-        )
-
-        if event is None:
+        try:
+            ev = app_logic.get_event(event_id)
+        except NotFoundError:
             return "Event not found", 404
+        except ServiceUnavailableError:
+            return jsonify({"status": "unavailable"}), 503
 
-        return render_template("respond.html", event=event)
+        event_dict = {
+            "id": ev.event_id,
+            "title": ev.title,
+            "notes": ev.notes,
+            "timeSlots": ev.slots
+        }
+        return render_template("respond.html", event=event_dict)
 
     @app.post("/events/<event_id>/responses")
     def submit_response(event_id):
-        from flask import request, jsonify
-
-        event = next(
-            (item for item in sample_events if item["id"] == event_id),
-            None
-        )
-
-        if event is None:
-            return jsonify({"error": {
-                "code": "EVENT_NOT_FOUND",
-                "message": "Event not found"
-            }}), 404
-
-        
-        if not event.get("timeSlots"):
-            return jsonify({"error": {
-                "code": "BAD_REQUEST",
-                "message": "This event has no available time slots."
-            }}), 400
-
-
         data = request.get_json(silent=True)
-
         if not isinstance(data, dict):
-            return jsonify({"error": {
-                "code": "BAD_REQUEST",
-                "message": "Invalid response data."
-            }}), 400
+            return _error("BAD_REQUEST", "Invalid response data.", 400)
 
-        name = data.get("responderName")
-        selected = data.get("selectedSlotIds")
+        responder_name = data.get("responderName")
+        selected_slot_ids = data.get("selectedSlotIds")
 
-        if (not isinstance(name, str)
-                or not name.strip()
-                or len(name) > 50
-                or not isinstance(selected, list)
-                or not selected
-                or any(not isinstance(s, str) for s in selected)
-                or len(selected) != len(set(selected))
-                or ("slot_fallback" in selected and len(selected) > 1)):
-            return jsonify({"error": {
-                "code": "BAD_REQUEST",
-                "message": "Enter a name and select valid time slots."
-            }}), 400
+        try:
+            updated_event = app_logic.submit_response(event_id, responder_name, selected_slot_ids)
+        except ValidationError as exc:
+            return _error("BAD_REQUEST", str(exc), 400)
+        except NotFoundError:
+            return _error("EVENT_NOT_FOUND", "Event not found", 404)
+        except ServiceUnavailableError:
+            return jsonify({"status": "unavailable"}), 503
 
-        valid_ids = {
-            slot["slotId"] for slot in event["timeSlots"]
-        }
+        candidate_slots = [s for s in updated_event.slots if s["slotId"] != "slot_fallback"]
+        highest = max((s["tally"] for s in candidate_slots), default=0)
+        winning_ids = [s["slotId"] for s in candidate_slots if highest > 0 and s["tally"] == highest]
 
-        if not set(selected).issubset(valid_ids):
-            return jsonify({"error": {
-                "code": "BAD_REQUEST",
-                "message": "Unknown time slot selected."
-            }}), 400
-
-        for slot in event["timeSlots"]:
-            slot.setdefault("attendees", [])
-            slot.setdefault("tally", 0)
-
-            if slot["slotId"] in selected:
-                slot["attendees"].append(name.strip())
-                slot["tally"] += 1
-
-        event["attendeeCount"] += 1
-
-        candidate_slots = [
-            slot for slot in event["timeSlots"]
-            if slot["slotId"] != "slot_fallback"
-        ]
-
-        highest = max(
-            (slot["tally"] for slot in candidate_slots),
-            default=0
-        )
-
-        winning_ids = [
-            slot["slotId"] for slot in candidate_slots
-            if highest > 0 and slot["tally"] == highest
-        ]
+        total_attendees = _unique_attendee_count(updated_event.slots)
 
         return jsonify({
-            "id": event["id"],
-            "title": event["title"],
-            "notes": event.get("notes", ""),
-            "attendeeCount": event["attendeeCount"],
+            "id": updated_event.event_id,
+            "title": updated_event.title,
+            "notes": updated_event.notes,
+            "attendeeCount": total_attendees,
             "winningSlotIds": winning_ids,
-            "timeSlots": event["timeSlots"]
+            "timeSlots": updated_event.slots
         }), 200
 
     @app.get("/events/<event_id>/results")
     def event_results(event_id):
-        from flask import jsonify
+        try:
+            ev = app_logic.get_event(event_id)
+        except NotFoundError:
+            return _error("EVENT_NOT_FOUND", "Event not found", 404)
+        except ServiceUnavailableError:
+            return jsonify({"status": "unavailable"}), 503
 
-        event = next(
-            (item for item in sample_events if item["id"] == event_id),
-            None
-        )
-
-        if event is None:
-            return jsonify({
-                "error": {
-                    "code": "EVENT_NOT_FOUND",
-                    "message": "Event not found"
-                }
-            }), 404
-
-        slots = event.get("timeSlots", [])
-
-        result_slots = []
-        for slot in slots:
-            result_slots.append({
-                **slot,
-                "tally": slot.get("tally", 0),
-                "attendees": slot.get("attendees", [])
-            })
-
-        candidate_slots = [
-            slot for slot in result_slots
-            if slot["slotId"] != "slot_fallback"
-        ]
-
-        highest = max(
-            (slot["tally"] for slot in candidate_slots),
-            default=0
-        )
-
-        winning_ids = [
-            slot["slotId"] for slot in candidate_slots
-            if highest > 0 and slot["tally"] == highest
-        ]
-
+        candidate_slots = [s for s in ev.slots if s["slotId"] != "slot_fallback"]
+        highest = max((s["tally"] for s in candidate_slots), default=0)
+        winning_ids = [s["slotId"] for s in candidate_slots if highest > 0 and s["tally"] == highest]
+        total_attendees = _unique_attendee_count(ev.slots)
         return jsonify({
-            "id": event["id"],
-            "title": event["title"],
-            "notes": event.get("notes", ""),
-            "attendeeCount": event["attendeeCount"],
+            "id": ev.event_id,
+            "title": ev.title,
+            "notes": ev.notes,
+            "attendeeCount": total_attendees,
             "winningSlotIds": winning_ids,
-            "timeSlots": result_slots
+            "timeSlots": ev.slots
         }), 200
 
     @app.get("/events/<event_id>/results/view")
     def results_page(event_id):
-        from flask import abort
-
-        event = next(
-            (item for item in sample_events if item["id"] == event_id),
-            None
-        )
-
-        if event is None:
+        try:
+            ev = app_logic.get_event(event_id)
+        except NotFoundError:
             abort(404)
+        except ServiceUnavailableError:
+            return jsonify({"status": "unavailable"}), 503
 
-        slots = [
-            {
-                **slot,
-                "tally": slot.get("tally", 0),
-                "attendees": slot.get("attendees", [])
-            }
-            for slot in event.get("timeSlots", [])
-        ]
+        candidate_slots = [s for s in ev.slots if s["slotId"] != "slot_fallback"]
+        highest = max((s["tally"] for s in candidate_slots), default=0)
+        winning_ids = [s["slotId"] for s in candidate_slots if highest > 0 and s["tally"] == highest]
+        total_attendees = _unique_attendee_count(ev.slots)
 
-        candidate_slots = [
-            slot for slot in slots
-            if slot["slotId"] != "slot_fallback"
-        ]
-
-        highest = max(
-            (slot["tally"] for slot in candidate_slots),
-            default=0
-        )
-
-        winning_ids = [
-            slot["slotId"] for slot in candidate_slots
-            if highest > 0 and slot["tally"] == highest
-        ]
+        event_dict = {
+            "id": ev.event_id,
+            "title": ev.title,
+            "notes": ev.notes,
+            "attendeeCount": total_attendees
+        }
 
         return render_template(
             "results.html",
-            event=event,
-            slots=slots,
+            event=event_dict,
+            slots=ev.slots,
             winning_ids=winning_ids
         )
 
     @app.get("/health")
     def health():
-        return {"status": "ok"}, 200
+        try:
+            app_logic.health()
+        except ServiceUnavailableError:
+            return jsonify({"status": "unavailable"}), 503
+        return jsonify({"status": "ok"}), 200
 
     return app
 
 
+def launch() -> Flask:
+    """Initialize storage, application logic, and Flask app from environment settings."""
+    settings = ensure_settings()
+    storage = EventStorage(
+        table_name=settings.get("EVENTS_TABLE_NAME", "Events"),
+        region_name=settings["AWS_DEFAULT_REGION"],
+        endpoint_url=settings["DYNAMODB_ENDPOINT_URL"],
+    )
+    try:
+        storage.ping()
+    except DatabaseUnavailableError as exc:
+        raise RuntimeError(
+            "Database not reachable. Is DynamoDB Local running? "
+            "Is the Events table created (python scripts/create_table.py)? "
+            f"Details: {exc}"
+        ) from exc
+
+    return create_app(FindATimeApp(storage))
+
+
 if __name__ == "__main__":
-    create_app().run(debug=True)
+    try:
+        app = launch()
+    except RuntimeError as exc:
+        print(exc, file=sys.stderr)
+        sys.exit(1)
+    app.run(debug=True, port=5000)

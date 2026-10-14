@@ -1,0 +1,193 @@
+[
+  {
+    "id": "ev_101a9b2c",
+    "title": "CS 320 Group Project Kickoff",
+    "notes": "Meet in CS Lab 204 or join via Discord voice",
+    "createdAt": "2026-09-20T21:00:00Z",
+    "timeSlots": [
+      {
+        "slotId": "slot_1",
+        "startTime": "2026-09-23T19:00:00Z",
+        "endTime": "2026-09-23T20:00:00Z",
+        "label": "Wednesday 3:00 PM - 4:00 PM",
+        "tally": 0,
+        "attendees": []
+      },
+      {
+        "slotId": "slot_2",
+        "startTime": "2026-09-23T21:00:00Z",
+        "endTime": "2026-09-23T22:00:00Z",
+        "label": "Wednesday 5:00 PM - 6:00 PM",
+        "tally": 0,
+        "attendees": []
+      },
+      {
+        "slotId": "slot_3",
+        "startTime": "2026-09-24T17:00:00Z",
+        "endTime": "2026-09-24T18:00:00Z",
+        "label": "Thursday 1:00 PM - 2:00 PM",
+        "tally": 0,
+        "attendees": []
+      },
+      {
+        "slotId": "slot_fallback",
+        "startTime": null,
+        "endTime": null,
+        "label": "None of these work for me",
+        "tally": 0,
+        "attendees": []
+      }
+    ]
+  },
+  {
+    "id": "ev_202c4d5e",
+    "title": "Weekend Midterm Study Group",
+    "notes": "Focusing on SQL normalization and ER diagrams",
+    "createdAt": "2026-09-20T18:00:00Z",
+    "timeSlots": [
+      {
+        "slotId": "slot_1",
+        "startTime": "2026-10-03T15:00:00Z",
+        "endTime": "2026-10-03T17:00:00Z",
+        "label": "Saturday 11:00 AM - 1:00 PM",
+        "tally": 2,
+        "attendees": [
+          "Alice Smith",
+          "Bob Johnson"
+        ]
+      },
+      {
+        "slotId": "slot_2",
+        "startTime": "2026-10-03T19:00:00Z",
+        "endTime": "2026-10-03T21:00:00Z",
+        "label": "Saturday 3:00 PM - 5:00 PM",
+        "tally": 5,
+        "attendees": [
+          "Alice Smith",
+          "Charlie Davis",
+          "Dana Scully",
+          "Evan Wright",
+          "Fiona Gallagher"
+        ]
+      },
+      {
+        "slotId": "slot_3",
+        "startTime": "2026-10-04T18:00:00Z",
+        "endTime": "2026-10-04T20:00:00Z",
+        "label": "Sunday 2:00 PM - 4:00 PM",
+        "tally": 3,
+        "attendees": [
+          "Bob Johnson",
+          "Dana Scully",
+          "Evan Wright"
+        ]
+      },
+      {
+        "slotId": "slot_fallback",
+        "startTime": null,
+        "endTime": null,
+        "label": "None of these work for me",
+        "tally": 1,
+        "attendees": [
+          "George Miller"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "ev_303e6f7a",
+    "title": "End of Semester Dinner",
+    "notes": "Downtown restaurant, all welcome",
+    "createdAt": "2026-09-20T13:00:00Z",
+    "timeSlots": [
+      {
+        "slotId": "slot_1",
+        "startTime": "2026-12-11T23:30:00Z",
+        "endTime": "2026-12-12T01:30:00Z",
+        "label": "Friday 6:30 PM - 8:30 PM",
+        "tally": 6,
+        "attendees": [
+          "Alice Smith",
+          "Bob Johnson",
+          "Charlie Davis",
+          "Dana Scully",
+          "Evan Wright",
+          "Grace Hopper"
+        ]
+      },
+      {
+        "slotId": "slot_2",
+        "startTime": "2026-12-12T01:00:00Z",
+        "endTime": "2026-12-12T03:00:00Z",
+        "label": "Friday 8:00 PM - 10:00 PM",
+        "tally": 4,
+        "attendees": [
+          "Alice Smith",
+          "Dana Scully",
+          "Fiona Gallagher",
+          "Henry Adams"
+        ]
+      },
+      {
+        "slotId": "slot_3",
+        "startTime": "2026-12-13T00:00:00Z",
+        "endTime": "2026-12-13T02:30:00Z",
+        "label": "Saturday 7:00 PM - 9:30 PM",
+        "tally": 6,
+        "attendees": [
+          "Bob Johnson",
+          "Charlie Davis",
+          "Evan Wright",
+          "Fiona Gallagher",
+          "Grace Hopper",
+          "Henry Adams"
+        ]
+      },
+      {
+        "slotId": "slot_fallback",
+        "startTime": null,
+        "endTime": null,
+        "label": "None of these work for me",
+        "tally": 0,
+        "attendees": []
+      }
+    ]
+  },
+  {
+    "id": "ev_404g8h9i",
+    "title": "Quick Standup Sync",
+    "notes": "",
+    "createdAt": "2026-09-20T08:30:00Z",
+    "timeSlots": [
+      {
+        "slotId": "slot_1",
+        "startTime": "2026-09-21T13:00:00Z",
+        "endTime": "2026-09-21T13:30:00Z",
+        "label": "Monday 9:00 AM - 9:30 AM",
+        "tally": 2,
+        "attendees": [
+          "Liam Vance",
+          "Maya Patel"
+        ]
+      },
+      {
+        "slotId": "slot_2",
+        "startTime": "2026-09-21T14:00:00Z",
+        "endTime": "2026-09-21T14:30:00Z",
+        "label": "Monday 10:00 AM - 10:30 AM",
+        "tally": 1,
+        "attendees": [
+          "Liam Vance"
+        ]
+      },
+      {
+        "slotId": "slot_fallback",
+        "startTime": null,
+        "endTime": null,
+        "label": "None of these work for me",
+        "tally": 0,
+        "attendees": []
+      }
+    ]
+  }
+]
