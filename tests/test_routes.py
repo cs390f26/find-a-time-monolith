@@ -18,7 +18,7 @@ def test_create_event_page():
     app.config["TESTING"] = True
 
     client = app.test_client()
-    response = client.get("/events/new")
+    response = client.get("/create")
 
     assert response.status_code == 200
     assert b"Create an event" in response.data
@@ -255,7 +255,6 @@ def test_list_events_endpoint():
     assert created_ids.issubset({e["id"] for e in data["events"]})
 
 
-
 def test_attendee_count_counts_each_person_once():
     """Alice picks two slots and Bob picks one: that is 2 people, not 3 votes."""
     app = create_app()
@@ -277,15 +276,28 @@ def test_attendee_count_counts_each_person_once():
     listed = {e["id"]: e for e in client.get("/events").get_json()["events"]}
     assert listed[event_id]["attendeeCount"] == 2
 
-    # Home page (HTML)
-    assert b"2 responses" in client.get("/").data
-
-    # Results page (HTML)
-    assert b"2 responses" in client.get(f"/events/{event_id}/results/view").data
+    # Results API
+    results = client.get(f"/events/{event_id}/results").get_json()
+    assert results["attendeeCount"] == 2
 
 
-def test_home_page_results_button_opens_results_page():
-    """The Results button must open the HTML results page, not the raw JSON API."""
+def test_pages_are_static_and_link_to_query_string_pages():
+    """Pages are static shells; their JavaScript loads data from the JSON API."""
+    app = create_app()
+    app.config["TESTING"] = True
+    client = app.test_client()
+
+    for path in ["/", "/create", "/respond", "/results"]:
+        assert client.get(path).status_code == 200
+
+    home = client.get("/").data.decode()
+    assert 'fetch("/events")' in home
+    assert '"/results?id="' in home
+    assert '"/respond?id="' in home
+
+
+def test_get_event_hides_tallies_and_names():
+    """GET /events/<id> is for the Respond page: slots without tallies or attendee names."""
     app = create_app()
     app.config["TESTING"] = True
     client = app.test_client()
@@ -294,11 +306,24 @@ def test_home_page_results_button_opens_results_page():
         {"startTime": "2026-10-15T14:00:00Z", "endTime": "2026-10-15T15:00:00Z"},
         {"startTime": "2026-10-16T16:00:00Z", "endTime": "2026-10-16T17:00:00Z"},
     ]
-    event_id = client.post("/events", json={"title": "Link Test", "timeSlots": slots}).get_json()["id"]
+    event_id = client.post("/events", json={"title": "Q", "timeSlots": slots}).get_json()["id"]
+    client.post(f"/events/{event_id}/responses",
+                json={"responderName": "Alice", "selectedSlotIds": ["slot_1"]})
 
-    home = client.get("/").data.decode()
-    assert f'href="/events/{event_id}/results/view"' in home
+    body = client.get(f"/events/{event_id}").get_json()
+    assert body["attendeeCount"] == 1
+    assert [s["slotId"] for s in body["timeSlots"]] == ["slot_1", "slot_2", "slot_fallback"]
+    assert all("tally" not in s and "attendees" not in s for s in body["timeSlots"])
 
+
+def test_unknown_event_returns_json_error():
+    app = create_app()
+    app.config["TESTING"] = True
+    client = app.test_client()
+
+    response = client.get("/events/does-not-exist")
+    assert response.status_code == 404
+    assert response.get_json()["error"]["code"] == "EVENT_NOT_FOUND"
 
 
 def test_list_events_newest_first_with_created_at():
@@ -327,7 +352,3 @@ def test_list_events_newest_first_with_created_at():
     # Newest first
     listed_ids = [e["id"] for e in events]
     assert listed_ids == list(reversed(created_in_order))
-
-    # The home page shows them in the same order
-    home = client.get("/").data.decode()
-    assert home.index("Third") < home.index("Second") < home.index("First")

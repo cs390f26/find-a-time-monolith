@@ -106,39 +106,64 @@
       <h1>Find a Time</h1>
       <p class="subtitle">Propose a plan. Cast your availability. See the results.</p>
     </div>
-<a href="/events/new" class="btn">Create event</a>
-</header>
+    <a href="/create" class="btn">Create event</a>
+  </header>
 
-  
-<div class="card">
-  {% if events %}
-    {% for event in events %}
-    <div class="event-row">
-      <div class="event-info">
-        <h2>{{ event.title }}</h2>
-        <p class="event-meta">
-          {{ event.attendeeCount }} responses
-        </p>
-      </div>
+  <div class="card" id="event-list"></div>
+  <p class="event-meta" id="list-status" hidden></p>
 
-      <div class="event-actions">
-        <a href="/events/{{ event.id }}" class="btn">
-          Respond
-        </a>
-        <a href="/events/{{ event.id }}/results/view"
-           class="btn btn-secondary">
-          Results
-        </a>
-      </div>
-    </div>
-    {% endfor %}
-  {% else %}
-    <div class="event-row">
-      <p>No events yet. Create the first event!</p>
-    </div>
-  {% endif %}
-</div>
+<script>
+// Load the events from the API (GET /events) and build one row per event.
+const list = document.getElementById("event-list");
+const statusBox = document.getElementById("list-status");
 
+function responsesLabel(n) {
+  return n === 1 ? "1 response" : n + " responses";
+}
+
+async function loadEvents() {
+  let data;
+  try {
+    const response = await fetch("/events");
+    if (!response.ok) throw new Error();
+    data = await response.json();
+  } catch (e) {
+    statusBox.hidden = false;
+    statusBox.textContent = "Could not load events.";
+    return;
+  }
+
+  list.replaceChildren();
+  if (data.events.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "event-row";
+    empty.innerHTML = "<p>No events yet. Create the first event!</p>";
+    list.appendChild(empty);
+    return;
+  }
+
+  for (const event of data.events) {
+    const row = document.createElement("div");
+    row.className = "event-row";
+    row.innerHTML =
+      '<div class="event-info"><h2></h2><p class="event-meta"></p></div>' +
+      '<div class="event-actions">' +
+      '<a class="btn">Respond</a>' +
+      '<a class="btn btn-secondary">Results</a>' +
+      "</div>";
+    // textContent (not innerHTML) so user-typed titles can't inject HTML.
+    row.querySelector("h2").textContent = event.title;
+    const meta = event.notes ? event.notes + "  ·  " : "";
+    row.querySelector(".event-meta").textContent = meta + responsesLabel(event.attendeeCount);
+    const links = row.querySelectorAll("a");
+    links[0].href = "/respond?id=" + encodeURIComponent(event.id);
+    links[1].href = "/results?id=" + encodeURIComponent(event.id);
+    list.appendChild(row);
+  }
+}
+
+loadEvents();
+</script>
 
 </body>
 </html>

@@ -199,153 +199,134 @@
 
   <header>
     <div>
-      <h1>Find a Time</h1>
+      <h1><a href="/" style="color:inherit;text-decoration:none">Find a Time</a></h1>
       <p class="subtitle">Propose a plan. Cast your availability. See the results.</p>
     </div>
     <div class="nav">
-     <a href="/" class="btn btn-secondary">All events</a>
-     <a href="/events/new" class="btn">Create event</a>
+      <a href="/" class="btn btn-secondary">All events</a>
+      <a href="/create" class="btn">Create event</a>
     </div>
   </header>
 
-  <div class="card">
-    <h2>{{ event.title }}</h2>
-    <p class="event-meta">{{ event.notes or '' }}</p>
+  <p class="event-meta" id="page-error" role="alert" hidden></p>
+
+  <div class="card" id="respond-card" hidden>
+    <h2 id="title"></h2>
+    <p class="event-meta" id="notes"></p>
     <p class="hint">Enter your name and check every time that works for you.</p>
 
     <div class="field">
       <label for="name">Your name</label>
       <input type="text" id="name" name="responderName"
-       placeholder="Enter your full name"
-       maxlength="50" required>    
-      </div>
+             placeholder="Enter your full name" maxlength="50" required>
+    </div>
 
     <hr class="divider">
 
-    
-{% for slot in event.timeSlots %}
-<label class="option {% if slot.slotId == 'slot_fallback' %}not-available{% endif %}">
-  <input type="checkbox"
-         name="selectedSlotIds"
-         value="{{ slot.slotId }}"
-         class="slot-checkbox">
+    <div id="slot-list"></div>
 
-  <span class="option-label">
-    {{ slot.label }}
-  </span>
-</label>
-{% endfor %}
+    <div class="submit-row">
+      <button type="button" id="submit-response" class="btn">Submit response</button>
+    </div>
 
-
-    
-<div class="submit-row">
-  <button type="button" id="submit-response" class="btn">
-    Submit response
-  </button>
-</div>
-
-<p id="response-error" role="alert" style="color:#a4433a;"></p>
-
+    <p id="response-error" role="alert" style="color:#a4433a;"></p>
   </div>
 
 <script>
-const checkboxes = document.querySelectorAll(".slot-checkbox");
-
-checkboxes.forEach((checkbox) => {
-  checkbox.addEventListener("change", () => {
-    if (!checkbox.checked) return;
-
-    if (checkbox.value === "slot_fallback") {
-      checkboxes.forEach((other) => {
-        if (other.value !== "slot_fallback") {
-          other.checked = false;
-        }
-      });
-    } else {
-      const fallback = document.querySelector(
-        'input[value="slot_fallback"]'
-      );
-
-      if (fallback) {
-        fallback.checked = false;
-      }
-    }
-  });
-});
-
-
-const submitButton = document.getElementById("submit-response");
+// The event id comes from the URL: /respond?id=ev_123
+const eventId = new URLSearchParams(window.location.search).get("id");
+const pageError = document.getElementById("page-error");
+const card = document.getElementById("respond-card");
+const slotList = document.getElementById("slot-list");
 const responseError = document.getElementById("response-error");
+const submitButton = document.getElementById("submit-response");
+
+function showPageError(message) {
+  pageError.hidden = false;
+  pageError.textContent = message;
+  card.hidden = true;
+}
+
+// "None of these work for me" and the real time slots exclude each other.
+function onCheckboxChange(changed) {
+  if (!changed.checked) return;
+  for (const box of slotList.querySelectorAll(".slot-checkbox")) {
+    const isFallback = box.value === "slot_fallback";
+    if (changed.value === "slot_fallback" ? !isFallback : isFallback) {
+      box.checked = false;
+    }
+  }
+}
+
+async function loadEvent() {
+  if (!eventId) return showPageError("Missing event id.");
+
+  // GET /events/<id>: event details and slots (no tallies on this page)
+  const response = await fetch("/events/" + encodeURIComponent(eventId));
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    return showPageError((data.error && data.error.message) || "Event not found.");
+  }
+
+  document.title = "Find a Time — " + data.title;
+  document.getElementById("title").textContent = data.title;
+  document.getElementById("notes").textContent = data.notes || "";
+
+  slotList.replaceChildren();
+  for (const slot of data.timeSlots) {
+    const label = document.createElement("label");
+    label.className = "option" + (slot.slotId === "slot_fallback" ? " not-available" : "");
+    label.innerHTML =
+      '<input type="checkbox" name="selectedSlotIds" class="slot-checkbox">' +
+      '<span class="option-label"></span>';
+    const box = label.querySelector("input");
+    box.value = slot.slotId;
+    box.addEventListener("change", () => onCheckboxChange(box));
+    label.querySelector(".option-label").textContent = slot.label;
+    slotList.appendChild(label);
+  }
+  card.hidden = false;
+}
 
 submitButton.addEventListener("click", async () => {
   responseError.textContent = "";
-
   const responderName = document.getElementById("name").value.trim();
-
-  const selectedSlotIds = [...checkboxes]
-    .filter((checkbox) => checkbox.checked)
-    .map((checkbox) => checkbox.value);
+  const selectedSlotIds = [...slotList.querySelectorAll(".slot-checkbox")]
+    .filter((box) => box.checked)
+    .map((box) => box.value);
 
   if (!responderName) {
     responseError.textContent = "Please enter your name.";
     return;
   }
-
   if (selectedSlotIds.length === 0) {
     responseError.textContent = "Please select at least one time slot.";
     return;
   }
 
-  if (
-    selectedSlotIds.includes("slot_fallback") &&
-    selectedSlotIds.length > 1
-  ) {
-    responseError.textContent =
-      "None of these work for me cannot be combined with other options.";
-    return;
-  }
-
-  
-  // Send the response to our Flask API.
   submitButton.disabled = true;
-
   try {
-    const response = await fetch(
-      `/events/{{ event.id }}/responses`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          responderName,
-          selectedSlotIds
-        })
-      }
-    );
-
-    const result = await response.json();
-
+    // POST /events/<id>/responses: record the response
+    const response = await fetch("/events/" + encodeURIComponent(eventId) + "/responses", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ responderName, selectedSlotIds }),
+    });
+    const result = await response.json().catch(() => ({}));
     if (!response.ok) {
-      responseError.textContent =
-        result.error?.message || "Could not submit response.";
+      responseError.textContent = (result.error && result.error.message) || "Could not submit response.";
       return;
     }
-
-   window.location.href =
-  `/events/{{ event.id }}/results/view`;
-
+    window.location.href = "/results?id=" + encodeURIComponent(eventId);
   } catch (error) {
-    responseError.textContent =
-      "Unable to submit your response.";
+    responseError.textContent = "Unable to submit your response.";
   } finally {
     submitButton.disabled = false;
   }
-
 });
 
+loadEvent();
 </script>
-
 
 </body>
 </html>

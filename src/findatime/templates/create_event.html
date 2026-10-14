@@ -297,6 +297,7 @@ function formatSlotLabel(date, start, end) {
   const time = (d) => d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
   return `${day} ${time(startDate)} - ${time(endDate)}`;
 }
+
 addButton.addEventListener("click", addSlot);
 
 addSlot();
@@ -363,7 +364,7 @@ timeSlots.push({
       return;
     }
 
-    window.location.href = `/events/${encodeURIComponent(result.id)}`;
+    window.location.href = `/respond?id=${encodeURIComponent(result.id)}`;
   } catch (error) {
     errorBox.textContent = "Unable to connect to the server.";
   }

@@ -68,3 +68,103 @@ def event_data_from_item(item: dict) -> EventData:
         notes=item.get("notes", ""),
         slots=slots,
     )
+
+# --- View types: the shape of data each screen / API response needs ---
+# The DB layer returns the full EventData. The application layer turns it into
+# one of these views, and the API layer turns the view into JSON.
+
+
+@dataclass(frozen=True)
+class EventSummary:
+    """One row in the events list (no slots)."""
+    id: str
+    title: str
+    notes: str
+    created_at: str
+    attendee_count: int
+
+
+@dataclass(frozen=True)
+class EventQuestion:
+    """Event as shown on the Respond page: slots without tallies or names."""
+    id: str
+    title: str
+    notes: str
+    created_at: str
+    attendee_count: int
+    time_slots: list[dict]
+    # each slot: {"slotId", "startTime", "endTime", "label"}
+
+
+@dataclass(frozen=True)
+class EventResults:
+    """Event as shown on the Results page: tallies, names and the best time(s)."""
+    id: str
+    title: str
+    notes: str
+    created_at: str
+    attendee_count: int
+    winning_slot_ids: list[str]
+    time_slots: list[dict]
+    # each slot: {"slotId", "startTime", "endTime", "label", "tally", "attendees"}
+
+
+FALLBACK_SLOT_ID = "slot_fallback"
+
+
+def _attendee_count(event: EventData) -> int:
+    """Number of different people who responded (a name counts once, even if it picked several slots)."""
+    return len({name for slot in event.slots for name in slot.get("attendees", [])})
+
+
+def _winning_slot_ids(event: EventData) -> list[str]:
+    """Slot(s) with the highest tally. The fallback slot never wins; no votes means no winner."""
+    candidates = [s for s in event.slots if s["slotId"] != FALLBACK_SLOT_ID]
+    highest = max((s["tally"] for s in candidates), default=0)
+    if highest == 0:
+        return []
+    return [s["slotId"] for s in candidates if s["tally"] == highest]
+
+
+def extract_event_summary(event: EventData) -> EventSummary:
+    return EventSummary(
+        id=event.event_id,
+        title=event.title,
+        notes=event.notes,
+        created_at=event.created_at,
+        attendee_count=_attendee_count(event),
+    )
+
+
+def extract_event_question(event: EventData) -> EventQuestion:
+    slots = [
+        {"slotId": s["slotId"], "startTime": s.get("startTime"),
+         "endTime": s.get("endTime"), "label": s["label"]}
+        for s in event.slots
+    ]
+    return EventQuestion(
+        id=event.event_id,
+        title=event.title,
+        notes=event.notes,
+        created_at=event.created_at,
+        attendee_count=_attendee_count(event),
+        time_slots=slots,
+    )
+
+
+def extract_event_results(event: EventData) -> EventResults:
+    slots = [
+        {"slotId": s["slotId"], "startTime": s.get("startTime"),
+         "endTime": s.get("endTime"), "label": s["label"],
+         "tally": s["tally"], "attendees": list(s.get("attendees", []))}
+        for s in event.slots
+    ]
+    return EventResults(
+        id=event.event_id,
+        title=event.title,
+        notes=event.notes,
+        created_at=event.created_at,
+        attendee_count=_attendee_count(event),
+        winning_slot_ids=_winning_slot_ids(event),
+        time_slots=slots,
+    )

@@ -1,7 +1,15 @@
 import secrets
 from datetime import datetime, timezone
 from findatime.db import EventStorage, DatabaseUnavailableError
-from findatime.event_types import EventData
+from findatime.event_types import (
+    EventData,
+    EventQuestion,
+    EventResults,
+    EventSummary,
+    extract_event_question,
+    extract_event_results,
+    extract_event_summary,
+)
 
 
 class ValidationError(Exception):
@@ -99,19 +107,22 @@ class FindATimeApp:
 
         return event_id
 
-    def get_event(self, event_id: str) -> EventData:
-        """Retrieve an event or raise NotFoundError."""
-        event = self._load_event(event_id)
-        return event
+    def get_event(self, event_id: str) -> EventQuestion:
+        """Return an event for the Respond page (no tallies), or raise NotFoundError."""
+        return extract_event_question(self._load_event(event_id))
 
-    def submit_response(self, event_id: str, responder_name: str, selected_slot_ids: list[str]) -> EventData:
+    def get_results(self, event_id: str) -> EventResults:
+        """Return tallies, names and best time(s) for an event, or raise NotFoundError."""
+        return extract_event_results(self._load_event(event_id))
+
+    def submit_response(self, event_id: str, responder_name: str, selected_slot_ids: list[str]) -> EventResults:
         """Record a participant's vote response and update tallies."""
         event = self._load_event(event_id)
         responder_name = responder_name.strip() if responder_name else ""
 
         if not responder_name:
             raise ValidationError("Responder name must not be blank.")
-        if not selected_slot_ids:
+        if not isinstance(selected_slot_ids, list) or not selected_slot_ids:
             raise ValidationError("Must select at least one time slot.")
         if "slot_fallback" in selected_slot_ids and len(selected_slot_ids) > 1:
             raise ValidationError("'None of these work for me' cannot be combined with other slots.")
@@ -147,10 +158,10 @@ class FindATimeApp:
         except DatabaseUnavailableError as exc:
             raise ServiceUnavailableError("Service unavailable: database unreachable") from exc
 
-        return updated_event
+        return extract_event_results(updated_event)
 
-    def list_events(self) -> list[EventData]:
-        """Return all stored events, newest first.
+    def list_events(self) -> list[EventSummary]:
+        """Return a summary of every event, newest first.
 
         DynamoDB Scan returns items in no particular order, so we sort here by
         createdAt. createdAt is an ISO 8601 UTC string, and those sort correctly
@@ -160,7 +171,8 @@ class FindATimeApp:
             events = self._store.list_events()
         except DatabaseUnavailableError as exc:
             raise ServiceUnavailableError("Service unavailable: database unreachable") from exc
-        return sorted(events, key=lambda ev: ev.created_at, reverse=True)
+        events = sorted(events, key=lambda ev: ev.created_at, reverse=True)
+        return [extract_event_summary(ev) for ev in events]
 
     def _load_event(self, event_id: str) -> EventData:
         try:

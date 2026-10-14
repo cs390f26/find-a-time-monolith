@@ -142,77 +142,97 @@
 
   <header>
     <div>
-      <h1>Find a Time</h1>
+      <h1><a href="/" style="color:inherit;text-decoration:none">Find a Time</a></h1>
       <p class="subtitle">Propose a plan. Cast your availability. See the results.</p>
     </div>
     <div class="nav">
       <a href="/" class="btn btn-secondary">All events</a>
-      <a href="/events/new" class="btn">Create event</a>
+      <a href="/create" class="btn">Create event</a>
     </div>
   </header>
 
-  
-<div class="card">
-  <h2>{{ event.title }}</h2>
+  <p class="event-meta" id="page-error" role="alert" hidden></p>
 
-  <p class="event-meta">{{ event.notes or '' }}</p>
-  <p class="total">{{ event.attendeeCount }} responses</p>
+  <div class="card" id="results-card" hidden>
+    <h2 id="title"></h2>
+    <p class="event-meta" id="notes"></p>
+    <p class="total" id="total"></p>
 
-  <hr class="divider">
+    <hr class="divider">
 
-  {% for slot in slots %}
-  <div class="result-row">
-    <div class="result-label">
-      <span>
-        {{ slot.label }}
-        {% if slot.slotId in winning_ids %}
-          <strong>(Best time)</strong>
-        {% endif %}
-      </span>
-      <span>{{ slot.tally }}</span>
-    </div>
+    <div id="result-list"></div>
 
-    
-<div class="bar-track">
-  <div
-    class="bar-fill {% if slot.slotId == 'slot_fallback' %}not-available{% endif %}"
-    data-tally="{{ slot.tally }}"
-    data-total="{{ event.attendeeCount }}">
+    <hr class="divider">
+
+    <a id="respond-link" class="footer-link">Respond or change your response</a>
   </div>
-</div>
-
-
-    <div class="attendees-list">
-      {% if slot.attendees %}
-        {{ slot.attendees | join(', ') }}
-      {% else %}
-        No responses yet
-      {% endif %}
-    </div>
-  </div>
-  {% endfor %}
-
-  <hr class="divider">
-
-  <a href="/events/{{ event.id }}" class="footer-link">
-  Submit another response
-  </a>
-</div>    
-
 
 <script>
-document.querySelectorAll(".bar-fill").forEach((bar) => {
-  const tally = Number(bar.dataset.tally);
-  const total = Number(bar.dataset.total);
+// The event id comes from the URL: /results?id=ev_123
+const eventId = new URLSearchParams(window.location.search).get("id");
+const pageError = document.getElementById("page-error");
+const card = document.getElementById("results-card");
+const resultList = document.getElementById("result-list");
 
-  const percentage = total > 0
-    ? (tally / total) * 100
-    : 0;
+function showPageError(message) {
+  pageError.hidden = false;
+  pageError.textContent = message;
+  card.hidden = true;
+}
 
-  bar.style.width = `${percentage}%`;
-});
+function responsesLabel(n) {
+  return n === 1 ? "1 response" : n + " responses";
+}
+
+async function loadResults() {
+  if (!eventId) return showPageError("Missing event id.");
+
+  // GET /events/<id>/results: tallies, names, and the best time(s)
+  const response = await fetch("/events/" + encodeURIComponent(eventId) + "/results");
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    return showPageError((data.error && data.error.message) || "Event not found.");
+  }
+
+  document.title = "Find a Time — Results — " + data.title;
+  document.getElementById("title").textContent = data.title;
+  document.getElementById("notes").textContent = data.notes || "";
+  document.getElementById("total").textContent = responsesLabel(data.attendeeCount);
+  document.getElementById("respond-link").href = "/respond?id=" + encodeURIComponent(eventId);
+
+  resultList.replaceChildren();
+  for (const slot of data.timeSlots) {
+    const row = document.createElement("div");
+    row.className = "result-row";
+    row.innerHTML =
+      '<div class="result-label"><span><span class="slot-name"></span></span>' +
+      '<span class="result-count"></span></div>' +
+      '<div class="bar-track"><div class="bar-fill"></div></div>' +
+      '<div class="attendees-list"></div>';
+
+    row.querySelector(".slot-name").textContent = slot.label;
+    if (data.winningSlotIds.includes(slot.slotId)) {
+      const best = document.createElement("strong");
+      best.textContent = " (Best time)";
+      row.querySelector(".slot-name").after(best);
+    }
+    row.querySelector(".result-count").textContent = slot.tally;
+
+    // Bar width = share of all respondents who picked this slot
+    const bar = row.querySelector(".bar-fill");
+    if (slot.slotId === "slot_fallback") bar.classList.add("not-available");
+    const percent = data.attendeeCount > 0 ? (slot.tally / data.attendeeCount) * 100 : 0;
+    bar.style.width = percent + "%";
+
+    row.querySelector(".attendees-list").textContent =
+      slot.attendees.length ? slot.attendees.join(", ") : "No responses yet";
+    resultList.appendChild(row);
+  }
+  card.hidden = false;
+}
+
+loadResults();
 </script>
-
 
 </body>
 </html>
