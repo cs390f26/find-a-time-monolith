@@ -288,6 +288,15 @@ function updateSlots() {
   addButton.disabled = slotsContainer.children.length >= 6;
 }
 
+// Human-readable label shown on the Respond and Results pages,
+// in the creator's local time, e.g. "Friday, Oct 16 12:55 PM - 2:00 PM".
+function formatSlotLabel(date, start, end) {
+  const startDate = new Date(`${date}T${start}`);
+  const endDate = new Date(`${date}T${end}`);
+  const day = startDate.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
+  const time = (d) => d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  return `${day} ${time(startDate)} - ${time(endDate)}`;
+}
 addButton.addEventListener("click", addSlot);
 
 addSlot();
@@ -324,7 +333,7 @@ document.getElementById("event-form").addEventListener("submit", async (e) => {
 timeSlots.push({
   startTime,
   endTime,
-  label: `${date} ${start} - ${end}`
+  label: formatSlotLabel(date, start, end)
 });
 
   }
