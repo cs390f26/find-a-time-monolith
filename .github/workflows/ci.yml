@@ -9,6 +9,24 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+
+    # Our tests talk to a real DynamoDB Local, so run one next to the tests
+    # (a Docker "service container", reachable at localhost:8000).
+    services:
+      dynamodb:
+        image: amazon/dynamodb-local
+        ports:
+          - 8000:8000
+
+    # Same settings as local development. DynamoDB Local ignores the
+    # credentials, but boto3 requires some to be set.
+    env:
+      DYNAMODB_ENDPOINT_URL: http://localhost:8000
+      AWS_DEFAULT_REGION: us-east-1
+      EVENTS_TABLE_NAME: Events
+      AWS_ACCESS_KEY_ID: local
+      AWS_SECRET_ACCESS_KEY: local
+
     steps:
       - uses: actions/checkout@v4
 
@@ -23,6 +41,16 @@ jobs:
           pip install -r requirements.txt
           pip install -e .
 
-      - name: Run tests
+      - name: Wait for DynamoDB Local
         run: |
-          python -m pytest
+          for i in $(seq 1 30); do
+            curl -s -o /dev/null http://localhost:8000 && exit 0
+            sleep 1
+          done
+          echo "DynamoDB Local did not start" && exit 1
+
+      - name: Create table
+        run: python scripts/create_table.py
+
+      - name: Run tests
+        run: python -m pytest
