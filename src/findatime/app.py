@@ -79,6 +79,8 @@ def create_app(app_logic: Optional[FindATimeApp] = None) -> Flask:
         app_logic = FindATimeApp(_storage_from_settings())
 
     app = Flask(__name__)
+    # Reject request bodies over 64 KB with 413 (a real event is a few hundred bytes).
+    app.config["MAX_CONTENT_LENGTH"] = 64 * 1024
 
     # --- HTML pages (static; JavaScript loads the data from the API) ---
 

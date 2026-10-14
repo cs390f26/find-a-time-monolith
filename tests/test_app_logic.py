@@ -66,12 +66,24 @@ def test_create_event_uses_given_label(app_logic, store):
         ("T", [TWO_SLOTS[0], slot("2026-10-16T16:00:00Z", "2026-10-16T16:00:00Z")]),  # end equals start
         ("T", [TWO_SLOTS[0], TWO_SLOTS[0]]),               # duplicate slots
         ("T", [TWO_SLOTS[0], slot("not a date", "2026-10-16T16:00:00Z")]),  # bad time format
+        ("T", [TWO_SLOTS[0], slot(1, 2)]),                 # times not text
+        ("T", [TWO_SLOTS[0], slot("2026-10-16T16:00:00", "2026-10-16T17:00:00")]),  # no timezone
+        ("T", ["a", "b"]),                                 # slots not objects
+        ("T", [TWO_SLOTS[0], {**TWO_SLOTS[1], "label": "x" * 101}]),  # label over 100
+        (123, TWO_SLOTS),                                  # title not text
     ],
 )
 def test_create_event_validation(app_logic, store, title, time_slots):
     with pytest.raises(ValidationError):
         app_logic.create_event(title, "", time_slots)
     assert store.list_events() == []  # nothing was stored
+
+
+@pytest.mark.parametrize("notes", ["n" * 501, 5])   # too long / not text
+def test_create_event_notes_validation(app_logic, store, notes):
+    with pytest.raises(ValidationError):
+        app_logic.create_event("T", notes, TWO_SLOTS)
+    assert store.list_events() == []
 
 
 def test_create_event_allows_six_slots(app_logic):
@@ -171,6 +183,10 @@ def test_submit_fallback_only(app_logic, store):
         ("Alice", "slot_1"),                    # not a list
         ("Alice", ["slot_1", "slot_fallback"]), # fallback combined with a slot
         ("Alice", ["slot_9"]),                  # slot not in this event
+        ("x" * 51, ["slot_1"]),                 # name over 50 characters
+        (5, ["slot_1"]),                        # name not text
+        ("Alice", [["slot_1"]]),                # nested list
+        ("Alice", [1]),                         # ids not text
     ],
 )
 def test_submit_validation(app_logic, store, name, selected):

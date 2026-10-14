@@ -39,6 +39,11 @@ class FindATimeApp:
 
     def create_event(self, title: str, notes: str, time_slots: list[dict]) -> str:
         """Validate input, format slots including the fallback, and store a new event."""
+        # Requests can come from anywhere (e.g. curl), not just our page, so check types too.
+        if title is not None and not isinstance(title, str):
+            raise ValidationError("Event title must be text.")
+        if notes is not None and not isinstance(notes, str):
+            raise ValidationError("Notes must be text.")
         title = title.strip() if title else ""
         notes = notes.strip() if notes else ""
 
@@ -46,6 +51,8 @@ class FindATimeApp:
             raise ValidationError("Event title must not be blank.")
         if len(title) > 140:
             raise ValidationError("Event title must be at most 140 characters.")
+        if len(notes) > 500:
+            raise ValidationError("Notes must be at most 500 characters.")
         if not isinstance(time_slots, list) or not (2 <= len(time_slots) <= 6):
             raise ValidationError("Events must have between 2 and 6 time slots.")
 
@@ -53,6 +60,8 @@ class FindATimeApp:
         seen_times = set()
 
         for i, slot in enumerate(time_slots, start=1):
+            if not isinstance(slot, dict):
+                raise ValidationError("Each time slot must have a startTime and endTime.")
             start_str = slot.get("startTime")
             end_str = slot.get("endTime")
             
@@ -61,6 +70,13 @@ class FindATimeApp:
                 end = datetime.fromisoformat(end_str.replace("Z", "+00:00"))
             except (AttributeError, TypeError, ValueError):
                 raise ValidationError("Invalid start or end time format.")
+
+            # Require a timezone (e.g. "Z") so all times can be compared.
+            if start.tzinfo is None or end.tzinfo is None:
+                raise ValidationError("Times must include a timezone, e.g. 2026-10-15T14:00:00Z.")
+            label = slot.get("label")
+            if label is not None and (not isinstance(label, str) or len(label) > 100):
+                raise ValidationError("Slot label must be text of at most 100 characters.")
 
             if end <= start:
                 raise ValidationError("Time slot end time must be after start time.")
@@ -118,12 +134,18 @@ class FindATimeApp:
     def submit_response(self, event_id: str, responder_name: str, selected_slot_ids: list[str]) -> EventResults:
         """Record a participant's vote response and update tallies."""
         event = self._load_event(event_id)
+        if responder_name is not None and not isinstance(responder_name, str):
+            raise ValidationError("Responder name must be text.")
         responder_name = responder_name.strip() if responder_name else ""
 
         if not responder_name:
             raise ValidationError("Responder name must not be blank.")
+        if len(responder_name) > 50:
+            raise ValidationError("Responder name must be at most 50 characters.")
         if not isinstance(selected_slot_ids, list) or not selected_slot_ids:
             raise ValidationError("Must select at least one time slot.")
+        if not all(isinstance(slot_id, str) for slot_id in selected_slot_ids):
+            raise ValidationError("Selected time slots must be slot ids.")
         if "slot_fallback" in selected_slot_ids and len(selected_slot_ids) > 1:
             raise ValidationError("'None of these work for me' cannot be combined with other slots.")
 

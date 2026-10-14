@@ -206,3 +206,39 @@ def test_submit_response_unknown_event(client):
                            json={"responderName": "Alice", "selectedSlotIds": ["slot_1"]})
     assert response.status_code == 404
     assert response.get_json()["error"]["code"] == "EVENT_NOT_FOUND"
+
+
+# --- requests a "bad user" could send with curl ---
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"title": 123, "timeSlots": TWO_SLOTS},
+        {"title": "x", "notes": 5, "timeSlots": TWO_SLOTS},
+        {"title": "x", "timeSlots": ["a", "b"]},
+        {"title": "x", "timeSlots": [{"startTime": "2026-10-15T14:00:00", "endTime": "2026-10-15T15:00:00Z"},
+                                     TWO_SLOTS[1]]},
+        [1, 2],
+    ],
+)
+def test_create_event_malformed_input_is_400_not_500(client, body):
+    response = client.post("/events", json=body)
+    assert response.status_code == 400
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"responderName": 5, "selectedSlotIds": ["slot_1"]},
+        {"responderName": "a", "selectedSlotIds": [["slot_1"]]},
+        {"responderName": "a" * 51, "selectedSlotIds": ["slot_1"]},
+    ],
+)
+def test_submit_malformed_input_is_400_not_500(client, body):
+    event_id = create(client).get_json()["id"]
+    assert client.post(f"/events/{event_id}/responses", json=body).status_code == 400
+
+
+def test_huge_request_body_is_rejected(client):
+    response = client.post("/events", json={"title": "x", "notes": "n" * 100_000, "timeSlots": TWO_SLOTS})
+    assert response.status_code == 413
