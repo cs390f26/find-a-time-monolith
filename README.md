@@ -1,32 +1,42 @@
-# Find-a-Time
+# Find-a-Time (Monolith)
 
 A scheduling poll app for finding a meeting time that works for a group.
 
-## Overview
+One person creates an event with 2–6 candidate time slots ("None of these work for me" is
+added automatically). Others enter their name and check every slot that works for them.
+The results page shows how many people picked each slot, who they are, and highlights the
+best time.
 
-One user creates a poll with a set of candidate time slots for a meeting.
-Other users mark which of those time slots work for them. The system
-aggregates responses and shows a count of how many people are available
-per time slot, helping the organizer pick the best time to meet.
+## Screens
 
-## Planned Screens
+1. **Events list** (`/`): all events, newest first, with response counts
+2. **Create event** (`/events/new`)
+3. **Respond** (`/events/<id>`): enter your name and pick time slots
+4. **Results** (`/events/<id>/results/view`): tallies, names, and the best time
 
-- Create a new poll (add candidate time slots)
-- View a poll and submit your availability
-- View results (counts per time slot)
+## Architecture
 
-## Data Model (rough)
+```
+browser → Flask (app.py) → business logic (app_logic.py) → storage (db.py) → DynamoDB Local
+```
 
-- **Time Slots** — belongs to a poll, has a date/time
-- **Responses** — links a participant to a time slot with their availability
+- **Flask layer** (`app.py`): HTML pages and the JSON API
+- **Business layer** (`app_logic.py`): validation and rules
+- **Database layer** (`db.py`, `event_types.py`): reads and writes DynamoDB
 
-## Tech Stack
+In production, gunicorn and DynamoDB Local run on a single EC2 instance under systemd.
 
-- Flask
-- SQL database
-- pytest for testing
+## Tech stack
+
+Python 3.11 · Flask · boto3 · DynamoDB Local · gunicorn · systemd · pytest · GitHub Actions
+
+## Docs
+
+- [Development setup](docs/development.md): run it on your own computer
+- [Deployment](docs/deploy.md): launch it on EC2 with `deploy/userdata.sh`
+- [Team process](docs/process.md)
 
 ## Repos
 
-- `find-a-time-specs` (this repo) — use cases, mockups, schema, sample data
-- `find-a-time-monolith` — application implementation
+- `find-a-time-specs`: use cases, mockups, API spec, schema, sample data
+- `find-a-time-monolith` (this repo): the implementation
